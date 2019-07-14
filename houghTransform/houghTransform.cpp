@@ -2,24 +2,27 @@
 * \brief        hough transform
 * \details      finding lanes of a road with houghLinesP function
 * \author       Nazanin Tafreshi
-* \version      0.1
+* \version      0.2
 */
 
 #include "stdafx.h"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
-using namespace cv;
+#include <cmath>
+#include <iostream>
+
 using namespace std;
 
 int main()
 {
-	Mat blur, edges, gray, hist;
+	cv::Mat blur, edges, gray, hist;
 
-	Mat src = imread("H:\\my-reports\\Task_009\\Images\\Image (54).jpg", 1);
+	cv::Mat src = cv::imread("H:\\my-reports\\Task_009\\Images\\Image (30).jpg", 1);
+
 	imshow("src", src);
 
-	cvtColor(src, gray, COLOR_BGR2GRAY);
+	cvtColor(src, gray, cv::COLOR_BGR2GRAY);
 
 	cv::blur(gray, blur, cv::Size(5, 5));
 	imshow("blur", blur);
@@ -43,9 +46,9 @@ int main()
 	int h = edges.rows - y;
 	cv::Rect rect(x, y, w, h);
 	cv::Mat roi = edges(rect).clone();
-	cv::imshow("roi", roi);
+	imshow("roi", roi);
 
-	Mat and_img = Mat::zeros(edges.rows, edges.cols, CV_8U);
+	cv::Mat and_img = cv::Mat::zeros(edges.rows, edges.cols, CV_8U);
 	for (int i = 0; i < roi.rows; i++) {
 		for (int j = 0; j < roi.cols; j++) {
 			if ((roi.at<uchar>(i, j) & edges.at<uchar>(i + y, j + x)) == 255) {
@@ -58,20 +61,40 @@ int main()
 	}
 
 	imshow("bitwiseAND", and_img);
+	int size = and_img.rows * and_img.cols;
 
-	vector<Vec4i> linesP;
-	HoughLinesP(and_img, linesP, 1, CV_PI / 180, 100, 0, 50);
+	vector<cv::Vec4i> linesP;
+	HoughLinesP(and_img, linesP, 1, CV_PI / 180, 100, size / 24000, 50);
 
-	for (int i = 0; i < linesP.size(); i++) {
-		Vec4i l = linesP[i];
-		line(src, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 3, LINE_AA);
+	cv::Point initial;
+	cv::Point end;
+	int theta_thresh_low = 25;
+	int theta_thresh_high = 90;
+
+	vector<cv::Vec4i> selected_lines;
+	for (cv::Vec4i i : linesP) {
+		initial = cv::Point(i[0], i[1]);
+		end = cv::Point(i[2], i[3]);
+		double theta = atan2(static_cast<double>(end.y) - static_cast<double>(initial.y), static_cast<double>(end.x) - static_cast<double>(initial.x)) * 180 / CV_PI;
+
+		if (cv::abs(theta) > theta_thresh_low && abs(theta) <= theta_thresh_high) {
+			selected_lines.push_back(i);
+			cout << "theta for the line with initial point at (" + to_string(initial.x) + ", " + to_string(initial.y) + ") coordinate is " << theta << endl;
+		}
+		else {
+			cout << "ELSE theta for the line with initial point at (" + to_string(initial.x) + ", " + to_string(initial.y) + ") coordinate is " << theta << endl;
+		}
+	}
+
+
+	for (int i = 0; i < selected_lines.size(); i++) {
+		cv::Vec4i l = selected_lines[i];
+		line(src, cv::Point(l[0], l[1]), cv::Point(l[2], l[3]), cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
 	}
 
 	imshow("result", src);
 	imwrite("results\\result.jpg", src);
 
-	waitKey();
+	cv::waitKey();
 
 }
-
-
